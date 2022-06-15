@@ -1,0 +1,95 @@
+#cloud-config
+autoinstall:
+  version: 1
+  updates: security
+  apt:
+    geoip: true
+    preserve_sources_list: false
+    primary:
+    - arches: [amd64, i386]
+      uri: http://gb.archive.ubuntu.com/ubuntu
+    - arches: [default]
+      uri: http://ports.ubuntu.com/ubuntu-ports
+  write_files:
+  - path: /etc/ssh/sshd_config
+    content: |
+         Port 22
+         Protocol 2
+         HostKey /etc/ssh/ssh_host_rsa_key
+         HostKey /etc/ssh/ssh_host_dsa_key
+         HostKey /etc/ssh/ssh_host_ecdsa_key
+         HostKey /etc/ssh/ssh_host_ed25519_key
+         UsePrivilegeSeparation yes
+         KeyRegenerationInterval 3600
+         ServerKeyBits 1024
+         SyslogFacility AUTH
+         LogLevel INFO
+         LoginGraceTime 120
+         PermitRootLogin yes
+         StrictModes no
+         RSAAuthentication yes
+         PubkeyAuthentication no
+         IgnoreRhosts yes
+         RhostsRSAAuthentication no
+         HostbasedAuthentication no
+         PermitEmptyPasswords no
+         ChallengeResponseAuthentication no
+         X11Forwarding yes
+         X11DisplayOffset 10
+         PrintMotd no
+         PrintLastLog yes
+         TCPKeepAlive yes
+         AcceptEnv LANG LC_*
+         Subsystem sftp /usr/lib/openssh/sftp-server
+         UsePAM yes
+         AllowUsers ubuntu
+  identity:
+    hostname: ubuntu2204
+    username: ubuntu
+    password: '$6$wdAcoXrU039hKYPd$508Qvbe7ObUnxoj15DRCkzC3qO7edjH0VV7BPNRDYK4QR8ofJaEEF2heacn0QgD.f8pO8SNp83XNdWG6tocBM1'
+  #virutalisation packages installed due to requirements of identifying the IP assigned on restart
+  packages:
+    - qemu-guest-agent
+    - build-essential
+    - ntp
+    - linux-virtual
+    - linux-azure
+    - linux-tools-virtual
+    - linux-cloud-tools-virtual
+  network:
+  #second network stanza is here due to a bug in 20.04 honoured in 22.04 onwards
+    network:
+      version: 2
+      #mac identifier used to ensure packer connects back to same machine
+      ethernets:
+        eth0: {dhcp4: true, dhcp-identifier: mac}
+  # install SSH server and allow PW connection
+  ssh:
+    allow-pw: true
+    install-server: true
+  user-data:
+    disable_root: false
+  locale: en_US
+  keyboard: 
+    layout: en
+  storage:
+    grub:
+      reorder_uefi: false
+    layout:
+      name: direct
+    config:
+      - type: disk
+        id: disk0
+        match:
+          size: largest
+      - type: partition
+        id: boot-partition
+        device: disk0
+        size: 500M
+      - type: partition
+        id: root-partition
+        device: disk0
+        size: -1
+  # Stop the SSH service to ensure packer doesn't connect to early during auto-install
+  early-commands:
+  - systemctl stop ssh
